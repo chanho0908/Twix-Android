@@ -1,0 +1,122 @@
+name: Discord PR Notifications
+
+on:
+  pull_request:
+    types: [review_requested, closed]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  review-request-notify:
+    if: github.event.action == 'review_requested'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Review Request Notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          REQUESTED_REVIEWER: ${{ github.event.requested_reviewer.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          case "$REQUESTED_REVIEWER" in
+            "chanho0908")
+              DISCORD_MENTION="<@1451876971540774912>"
+              ;;
+            "dogmania")
+              DISCORD_MENTION="<@951268632770531399>"
+              ;;
+            *)
+              DISCORD_MENTION="@$REQUESTED_REVIEWER"
+              ;;
+          esac
+
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"content\": \"$DISCORD_MENTION 리뷰 요청이 왔어요! 👀\", \"embeds\": [{\"title\": \"#$PR_NUMBER $PR_TITLE\", \"url\": \"$PR_URL\", \"color\": 5814783}]}" \
+               $DISCORD_WEBHOOK
+
+  review-completed-notify:
+    if: github.event_name == 'pull_request_review'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Review Completed Notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          REVIEWER: ${{ github.event.review.user.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEW_STATE: ${{ github.event.review.state }}
+        run: |
+          case "$AUTHOR" in
+            "chanho0908")
+              AUTHOR_MENTION="<@1451876971540774912>"
+              ;;
+            "dogmania")
+              AUTHOR_MENTION="<@951268632770531399>"
+              ;;
+            *)
+              AUTHOR_MENTION="@$AUTHOR"
+              ;;
+          esac
+
+          case "$REVIEW_STATE" in
+            "approved")
+              MESSAGE="✅ 리뷰가 승인되었습니다!"
+              COLOR=3066993
+              EMOJI="✅"
+              ;;
+            "changes_requested")
+              MESSAGE="🔧 수정 요청이 있습니다"
+              COLOR=15158332
+              EMOJI="🔧"
+              ;;
+            "commented")
+              MESSAGE="💬 리뷰 코멘트가 달렸습니다"
+              COLOR=10181046
+              EMOJI="💬"
+              ;;
+            *)
+              MESSAGE="리뷰가 완료되었습니다"
+              COLOR=5814783
+              EMOJI="📝"
+              ;;
+          esac
+
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"content\": \"$AUTHOR_MENTION $MESSAGE\", \"embeds\": [{\"title\": \"$EMOJI #$PR_NUMBER $PR_TITLE\", \"url\": \"$PR_URL\", \"color\": $COLOR, \"fields\": [{\"name\": \"PR 작성자\", \"value\": \"$AUTHOR\", \"inline\": true}, {\"name\": \"리뷰어\", \"value\": \"$REVIEWER\", \"inline\": true}]}]}" \
+               $DISCORD_WEBHOOK
+
+  merge-notify:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Merge Notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          MERGER: ${{ github.event.pull_request.merged_by.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: |
+          case "$AUTHOR" in
+            "chanho0908")
+              AUTHOR_MENTION="<@1451876971540774912>"
+              ;;
+            "dogmania")
+              AUTHOR_MENTION="<@951268632770531399>"
+              ;;
+            *)
+              AUTHOR_MENTION="@$AUTHOR"
+              ;;
+          esac
+
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"content\": \"🎉 PR이 머지되었습니다! $AUTHOR_MENTION\", \"embeds\": [{\"title\": \"#$PR_NUMBER $PR_TITLE\", \"url\": \"$PR_URL\", \"color\": 3066993, \"fields\": [{\"name\": \"작성자\", \"value\": \"$AUTHOR\", \"inline\": true}, {\"name\": \"머지한 사람\", \"value\": \"$MERGER\", \"inline\": true}, {\"name\": \"브랜치\", \"value\": \"$BASE_BRANCH\", \"inline\": true}]}]}" \
+               $DISCORD_WEBHOOK
