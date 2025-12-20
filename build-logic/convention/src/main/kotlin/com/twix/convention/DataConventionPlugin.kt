@@ -11,7 +11,6 @@ class DataConventionPlugin : BuildLogicConventionPlugin({
     )
 
     dependencies {
-        implementation(libs.library("kotlinx-coroutines-core"))
         implementation(project(":domain"))
         implementation(project(":core:network"))
     }
